@@ -1,10 +1,23 @@
 import Blog from "../models/blog.model.js";
+import Like from "../models/like.model.js";
 import User from "../models/user.model.js";
 import { ApiError } from "../utils/api-error.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
 
-export const getAllBlogs = asyncHandler(async (req, res, next) => {});
+export const getAllBlogs = asyncHandler(async (req, res, next) => {
+  const userId = req.id;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "No user with this userId exists");
+  }
+
+  const blogs = await Blog.find({});
+
+  return res.status(200).json(new ApiResponse(200, blogs, `All Blogs Fetched`));
+});
+
 
 export const getFeedBlogs = asyncHandler(async (req, res, next) => {});
 
@@ -55,10 +68,68 @@ export const createBlogs = asyncHandler(async (req, res, next) => {
 
 export const updateBlogs = asyncHandler(async (req, res, next) => {});
 
-export const deleteBlogs = asyncHandler(async (req, res, next) => {});
+export const deleteBlogs = asyncHandler(async (req, res, next) => {
+  const blogId = req.params.id;
+  const userId = req.id;
+  const blog = await Blog.findOne({_id:blogId,author:userId});
+  if (!blog) {
+    throw new ApiError(404, "Blog not found");
+  }
+  await Blog.deleteOne({_id:blogId,author:userId});
 
-export const toggleLike = asyncHandler(async (req, res, next) => {});
+  await User.findByIdAndUpdate(userId,{$pull:{blogs:blogId}})
+  return res
+  .status(200)
+  .json(new ApiResponse(200,{},"Blog Deleted Successfully"));
+});
 
-export const addComment = asyncHandler(async (req, res, next) => {});
+export const toggleLike = asyncHandler(async (req, res, next) => {
+  const userId = req.id;
+  const blogId = req.params.id;
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "No user with this userId exists");
+  }
+  const blog = await Blog.findById(blogId);
+  if (!blog) {
+    throw new ApiError(404, "No blog with this id exists");
+  }
+  const existingLike = await Like.findOne({
+    user: userId,
+    target: "blog",
+    targetId: blogId,
+    
+  });
+  let message;
+  if (existingLike) {
+    // To UnLike
+    await Like.deleteOne({
+      user: userId,
+      target: "blog",
+      targetId: blogId,
+    });
+    await blog.updateOne({
+      $pull: { likes: existingLike._id },
+    });
+
+    message = `${user.username} unliked the blog`;
+  } else {
+    // To Like
+    const newLike = await Like.create({
+      user: userId,
+      target: "blog",
+      targetId: blogId,
+    });
+    await blog.updateOne({
+      $push: { likes: newLike._id },
+    });
+    message = `${user.username} liked the blog`;
+  }
+  return res.status(200).json(new ApiResponse(200, null, message));
+});
+
+export const addComment = asyncHandler(async (req, res, next) => {
+  
+});
 
 export const getComment = asyncHandler(async (req, res, next) => {});
