@@ -170,3 +170,57 @@ export const toggleLike = asyncHandler(async (req, res, next) => {
   }
   return res.status(200).json(new ApiResponse(200, null, message));
 });
+
+
+export const publishBlog = asyncHandler(async (req, res, next) => {
+  const userId = req.id;
+  const blogId = req.params.id;
+
+  if (!userId) {
+    throw new ApiError(404, "No user with this userId exists");
+  }
+
+  if (!blogId) {
+    throw new ApiError(404, "No blog with this id exists");
+  }
+
+  const blog = await Blog.findOne({ _id: blogId, author: userId });
+
+  if (!blog) {
+    throw new ApiError(404, "No blog with this id exists");
+  }
+
+  blog.isPublished = !blog.isPublished;
+  blog.publishedAt = blog.isPublished ? Date.now() : null;
+  await blog.save();
+
+  return res.status(200).json(new ApiResponse(200, blog, `Blog Published`));
+});
+
+export const previewBlog = asyncHandler(async (req, res, next) => {
+  const userId = req.id;
+  const blogId = req.params.id;
+
+  if (!userId) {
+    throw new ApiError(404, "No user with this userId exists");
+  }
+
+  if (!blogId) {
+    throw new ApiError(404, "No blog with this id exists");
+  }
+
+  const blog = await Blog.findById(blogId);
+  if (!blog) {
+    throw new ApiError(404, "No blog with this id exists");
+  }
+
+  if (!blog.readers.includes(userId)) {
+    blog.readers.push(userId);
+    blog.views++;
+    await blog.save();
+    return res.status(200).json(new ApiResponse(200, null, `Blog Previewed`));
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, `Blog Already Previewed`));
+});
